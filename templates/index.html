@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Блокнот MVP</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            margin: 0;
+            height: 100vh;
+        }
+        #sidebar {
+            width: 250px;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #content {
+            flex: 1;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .page {
+            cursor: pointer;
+            padding: 5px;
+        }
+        .page:hover {
+            background: #eee;
+        }
+        input, textarea {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        textarea {
+            height: 70vh;
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h3>Страницы</h3>
+    <div id="pages"></div>
+
+    <input id="newTitle" placeholder="Новая страница">
+    <button onclick="createPage()">Создать</button>
+</div>
+
+<div id="content">
+    <input id="title" placeholder="Заголовок">
+    <textarea id="text"></textarea>
+    <button onclick="save()">Сохранить</button>
+    <button onclick="removePage()" style="color: red;">Удалить страницу</button>
+</div>
+
+<script>
+let currentId = null;
+
+async function loadPages() {
+    const res = await fetch("/pages");
+    const pages = await res.json();
+
+    const list = document.getElementById("pages");
+    list.innerHTML = "";
+
+    for (const id in pages) {
+        const div = document.createElement("div");
+        div.className = "page";
+        div.innerText = pages[id].title;
+        div.onclick = () => openPage(id, pages[id]);
+        list.appendChild(div);
+    }
+}
+async function removePage() {
+    if (!currentId) return;
+
+    if (!confirm("Удалить страницу?")) return;
+
+    await fetch(`/pages/${currentId}`, {
+        method: "DELETE"
+    });
+
+    currentId = null;
+    document.getElementById("title").value = "";
+    document.getElementById("text").value = "";
+
+    loadPages();
+}
+
+function openPage(id, page) {
+    currentId = id;
+    document.getElementById("title").value = page.title;
+    document.getElementById("text").value = page.content;
+}
+
+async function createPage() {
+    const title = document.getElementById("newTitle").value;
+    await fetch("/pages?title=" + encodeURIComponent(title), { method: "POST" });
+    document.getElementById("newTitle").value = "";
+    loadPages();
+}
+
+async function save() {
+    if (!currentId) return;
+
+    const title = document.getElementById("title").value;
+    const content = document.getElementById("text").value;
+
+    await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
+        method: "PUT"
+    });
+
+    loadPages();
+}
+
+loadPages();
+</script>
+
+</body>
+</html>
