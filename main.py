@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from access import check_ip
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from storage import load_notes, add_page, update_page, delete_page
