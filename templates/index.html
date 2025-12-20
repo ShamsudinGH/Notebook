@@ -48,73 +48,108 @@
 </div>
 
 <div id="content">
-    <input id="title" placeholder="Заголовок">
-    <textarea id="text"></textarea>
-    <button onclick="save()">Сохранить</button>
+    <input id="title" placeholder="Заголовок" oninput="scheduleAutosave()">
+    <textarea id="text" oninput="scheduleAutosave()"></textarea>
+
+    <button onclick="autosave()">Сохранить</button>
     <button onclick="removePage()" style="color: red;">Удалить страницу</button>
+
+    <div id="status"></div>
 </div>
 
+
 <script>
-let currentId = null;
+    let saveTimer = null;
+    let SAVE_DELAY = 1500; // мс
+    let currentId = null;
 
-async function loadPages() {
-    const res = await fetch("/pages");
-    const pages = await res.json();
+    function scheduleAutosave() {
+        if (!currentId) return;
 
-    const list = document.getElementById("pages");
-    list.innerHTML = "";
+        document.getElementById("status").innerText = "Изменения не сохранены";
 
-    for (const id in pages) {
-        const div = document.createElement("div");
-        div.className = "page";
-        div.innerText = pages[id].title;
-        div.onclick = () => openPage(id, pages[id]);
-        list.appendChild(div);
+        if (saveTimer) {
+            clearTimeout(saveTimer);
+        }
+
+        saveTimer = setTimeout(() => {
+            autosave();
+        }, SAVE_DELAY);
+        }
+    async function autosave() {
+        if (!currentId) return;
+
+        const title = document.getElementById("title").value;
+        const content = document.getElementById("text").value;
+
+        document.getElementById("status").innerText = "Сохранение...";
+
+        await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
+            method: "PUT"
+        });
+
+        document.getElementById("status").innerText = "Сохранено";
     }
-}
-async function removePage() {
-    if (!currentId) return;
 
-    if (!confirm("Удалить страницу?")) return;
 
-    await fetch(`/pages/${currentId}`, {
-        method: "DELETE"
-    });
+    async function loadPages() {
+        const res = await fetch("/pages");
+        const pages = await res.json();
 
-    currentId = null;
-    document.getElementById("title").value = "";
-    document.getElementById("text").value = "";
+        const list = document.getElementById("pages");
+        list.innerHTML = "";
+
+        for (const id in pages) {
+            const div = document.createElement("div");
+            div.className = "page";
+            div.innerText = pages[id].title;
+            div.onclick = () => openPage(id, pages[id]);
+            list.appendChild(div);
+        }
+    }
+    async function removePage() {
+        if (!currentId) return;
+
+        if (!confirm("Удалить страницу?")) return;
+
+        await fetch(`/pages/${currentId}`, {
+            method: "DELETE"
+        });
+
+        currentId = null;
+        document.getElementById("title").value = "";
+        document.getElementById("text").value = "";
+
+        loadPages();
+    }
+
+    function openPage(id, page) {
+        currentId = id;
+        document.getElementById("title").value = page.title;
+        document.getElementById("text").value = page.content;
+    }
+
+    async function createPage() {
+        const title = document.getElementById("newTitle").value;
+        await fetch("/pages?title=" + encodeURIComponent(title), { method: "POST" });
+        document.getElementById("newTitle").value = "";
+        loadPages();
+    }
+
+    async function save() {
+        if (!currentId) return;
+
+        const title = document.getElementById("title").value;
+        const content = document.getElementById("text").value;
+
+        await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
+            method: "PUT"
+        });
+
+        loadPages();
+    }
 
     loadPages();
-}
-
-function openPage(id, page) {
-    currentId = id;
-    document.getElementById("title").value = page.title;
-    document.getElementById("text").value = page.content;
-}
-
-async function createPage() {
-    const title = document.getElementById("newTitle").value;
-    await fetch("/pages?title=" + encodeURIComponent(title), { method: "POST" });
-    document.getElementById("newTitle").value = "";
-    loadPages();
-}
-
-async function save() {
-    if (!currentId) return;
-
-    const title = document.getElementById("title").value;
-    const content = document.getElementById("text").value;
-
-    await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
-        method: "PUT"
-    });
-
-    loadPages();
-}
-
-loadPages();
 </script>
 
 </body>
