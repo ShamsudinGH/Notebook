@@ -51,47 +51,58 @@
     <input id="title" placeholder="Заголовок" oninput="scheduleAutosave()">
     <textarea id="text" oninput="scheduleAutosave()"></textarea>
 
+
     <button onclick="autosave()">Сохранить</button>
     <button onclick="removePage()" style="color: red;">Удалить страницу</button>
 
-    <div id="status"></div>
+    <div id="status" style="font-size: 12px; color: gray;"></div>
 </div>
-
 
 <script>
     let saveTimer = null;
-    let SAVE_DELAY = 1500; // мс
+    const SAVE_DELAY = 1500; // мс
     let currentId = null;
 
+    // Автосохранение с задержкой
     function scheduleAutosave() {
         if (!currentId) return;
 
         document.getElementById("status").innerText = "Изменения не сохранены";
 
-        if (saveTimer) {
-            clearTimeout(saveTimer);
-        }
+        if (saveTimer) clearTimeout(saveTimer);
 
         saveTimer = setTimeout(() => {
             autosave();
         }, SAVE_DELAY);
-        }
+    }
+
+    // Сохранение текущей страницы (автосейв или кнопка)
     async function autosave() {
         if (!currentId) return;
 
         const title = document.getElementById("title").value;
         const content = document.getElementById("text").value;
 
-        document.getElementById("status").innerText = "Сохранение...";
+        try {
+            const res = await fetch(
+                `/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`,
+                { method: "PUT" }
+            );
 
-        await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
-            method: "PUT"
-        });
+            const updatedPage = await res.json();
 
-        document.getElementById("status").innerText = "Сохранено";
+            // Обновляем состояние страницы после сохранения
+            document.getElementById("title").value = updatedPage.title;
+            document.getElementById("text").value = updatedPage.content;
+
+            document.getElementById("status").innerText = "Сохранено";
+        } catch (err) {
+            console.error(err);
+            document.getElementById("status").innerText = "Ошибка при сохранении";
+        }
     }
 
-
+    // Загрузка всех страниц
     async function loadPages() {
         const res = await fetch("/pages");
         const pages = await res.json();
@@ -107,50 +118,68 @@
             list.appendChild(div);
         }
     }
+
+    // Удаление страницы
     async function removePage() {
         if (!currentId) return;
-
         if (!confirm("Удалить страницу?")) return;
 
-        await fetch(`/pages/${currentId}`, {
-            method: "DELETE"
-        });
+        await fetch(`/pages/${currentId}`, { method: "DELETE" });
 
         currentId = null;
         document.getElementById("title").value = "";
         document.getElementById("text").value = "";
+        document.getElementById("status").innerText = "";
 
-        loadPages();
+        await loadPages();
     }
 
-    function openPage(id, page) {
+    // Открытие страницы
+    async function openPage(id) {
         currentId = id;
+
+        const res = await fetch(`/pages`);
+        const pages = await res.json();
+
+        const page = pages[id];
+        if (!page) return;
+
         document.getElementById("title").value = page.title;
         document.getElementById("text").value = page.content;
+        document.getElementById("status").innerText = "";
     }
 
+    // Создание новой страницы
     async function createPage() {
         const title = document.getElementById("newTitle").value;
-        await fetch("/pages?title=" + encodeURIComponent(title), { method: "POST" });
-        document.getElementById("newTitle").value = "";
-        loadPages();
+        if (!title) return;
+
+        try {
+            const res = await fetch("/pages?title=" + encodeURIComponent(title), { method: "POST" });
+            const page = await res.json();
+
+            // Сразу открываем новую страницу
+            currentId = page.id;
+            document.getElementById("title").value = page.title;
+            document.getElementById("text").value = page.content;
+
+            document.getElementById("newTitle").value = "";
+            await loadPages();
+        } catch (err) {
+            console.error(err);
+        }
     }
 
+    // Сохранение по кнопке
     async function save() {
         if (!currentId) return;
-
-        const title = document.getElementById("title").value;
-        const content = document.getElementById("text").value;
-
-        await fetch(`/pages/${currentId}?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
-            method: "PUT"
-        });
-
-        loadPages();
+        await autosave();
     }
 
+    // Инициализация
     loadPages();
 </script>
+
 
 </body>
 </html>

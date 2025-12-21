@@ -31,8 +31,9 @@ def rename_or_edit(page_id: str, title: str | None = None, content: str | None =
     if content is not None:
         data["content"] = content
 
-    update_page(page_id, data)
-    return {"status": "updated"}
+    updated_page = update_page(page_id, data)
+    return updated_page
+
 
 @app.delete("/pages/{page_id}")
 def delete(page_id: str):
